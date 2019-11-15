@@ -63,6 +63,18 @@ class CPU:
         if op == "ADD":
             self.register[reg_a] += self.register[reg_b]
 
+        elif op == "CMP":
+            value_1 = self.register[reg_a]
+            value_2 = self.register[reg_b]
+            if value_1 > value_2:
+                self.flag = 0b00000010
+            elif value_1 == value_2:
+                self.flag = 0b00000001
+            elif value_1 < value_2:
+                self.flag = 0b00000100
+        else:
+            raise Exception("Unsupported ALU operation")
+
     def trace(self):
         """
         Handy function to print out the CPU state. You might want to call this
@@ -71,15 +83,15 @@ class CPU:
 
         print(f"TRACE: %02X | %02X %02X %02X |" % (
             self.pc,
-            # self.fl,
-            # self.ie,
             self.ram_read(self.pc),
             self.ram_read(self.pc + 1),
             self.ram_read(self.pc + 2)
         ), end='')
 
         for i in range(8):
-            print(" %02X" % self.reg[i], end='')
+            print(" %02X" % self.register[i], end='')
+
+        print()
 
     def run(self):
         """Run the CPU."""
@@ -117,6 +129,7 @@ class CPU:
                 self.pc += 3
 
             # PUSH: Push the value in the given register on the stack.
+            # Decrement the SP.
             # Copy the value in the given register to the address pointed to by SP.
 
             elif IR == PUSH:
@@ -128,6 +141,7 @@ class CPU:
 
             # POP: Pop the value at the top of the stack into the given register.
             # Copy the value from the address pointed to by SP to the given register.
+            # Increment SP.
 
             elif IR == POP:
                 val = self.ram[self.sp]
@@ -138,6 +152,7 @@ class CPU:
 
             # CALL: The PC is set to the address stored in the given register.
             # We jump to that location in RAM and execute the first instruction in the subroutine.
+            # The PC can move forward or backwards from its current location.
 
             elif IR == CALL:
                 self.sp -= 1
@@ -156,3 +171,32 @@ class CPU:
             elif IR == ADD:
                 self.register[operand_a] += self.register[operand_b]
                 self.pc += 3
+
+            elif IR == CMP:
+                self.alu("CMP", operand_a, operand_b)
+                self.pc += 3
+
+            # JMP: Jump to the address stored in the given register.
+            # Set the PC to the address stored in the given register.
+
+            elif IR == JMP:
+                address = self.register[operand_a]
+                self.pc = address
+
+            # JEQ: If equal flag is set (true), jump to the address stored in the given register.
+
+            elif IR == JEQ:
+                if self.flag == 0b00000001:
+                    address = self.register[operand_a]
+                    self.pc = address
+                else:
+                    self.pc += 2
+
+            # JNE: If E flag is clear (false, 0), jump to the address stored in the given register.
+
+            elif IR == JNE:
+                if self.flag & 0b00000001 == 0b00000000:
+                    address = self.register[operand_a]
+                    self.pc = address
+                else:
+                    self.pc += 2
